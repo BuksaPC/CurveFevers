@@ -1,3 +1,22 @@
+
+Update v1.1.0 
+🎨 User Interface Enhancements
+
+Improved Dropdown Styling: Enhanced appearance for all select menus with better contrast and hover effects
+Trail Persistence Slider: Added intuitive slider with real-time feedback for trail fade settings
+Settings UI Polish: Better visual feedback and more intuitive control layouts
+
+⚙️ New Game Settings
+
+Trail Fade Control:
+
+Permanent trails (classic mode)
+Customizable fade time from 0.5s to 10s
+Real-time preview with color-coded feedback
+
+Map Size Options: Small, Medium, Large canvas sizes with auto-scaling
+
+
 # 🎮 Curve Fever - Local Multiplayer Snake Game
 
 A modern, web-based multiplayer snake game inspired by the classic Curve Fever. Players control colorful snakes that leave trails, trying to survive the longest by avoiding walls and other players' trails.
