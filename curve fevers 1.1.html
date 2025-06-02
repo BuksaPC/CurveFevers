@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curve Fevers - Local Multiplayer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow: hidden;
+        }
+        .audio-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .radio-player {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            padding: 1rem;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .radio-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .radio-btn {
+            background: rgba(78, 205, 196, 0.3);
+            border: 1px solid #4ecdc4;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .radio-btn:hover {
+            background: rgba(78, 205, 196, 0.5);
+        }
+
+        .radio-btn.active {
+            background: #4ecdc4;
+            color: #333;
+        }
+
+        .volume-control {
+            margin-top: 0.5rem;
+        }
+
+        .volume-slider {
+            width: 100px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .radio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .collapse-btn {
+            background: none;
+            border: none;
+            color: #4ecdc4;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .radio-content {
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            overflow: hidden;
+        }
+
+        .radio-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        .radio-content:not(.collapsed) {
+            max-height: 200px;
+            opacity: 1;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .lobby {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            padding: 2.5rem;
+            border-radius: 20px;
+            min-width: 600px;
+            max-width: 80%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .player-slot {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.2rem;
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .player-slot.active {
+            border-color: #4ecdc4;
+            background: rgba(78, 205, 196, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .player-name {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .controls-display {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            padding: 0.8rem 1.8rem;
+            border-radius: 25px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .game-canvas {
+            border: 3px solid #4ecdc4;
+            border-radius: 15px;
+            background: radial-gradient(circle at center, #001122, #000000);
+            box-shadow: 0 0 30px rgba(78, 205, 196, 0.5), inset 0 0 50px rgba(0, 50, 100, 0.3);
+        }
+
+        .game-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .scores {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .score-item {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0.7rem 1.2rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .game-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            z-index: 10;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            padding: 2.5rem;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 600px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .color-picker {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .color-picker:hover {
+            transform: scale(1.1);
+            border-color: #4ecdc4;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .gamepad-config {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .control-input {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(78, 205, 196, 0.5);
+            padding: 0.8rem;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .control-input:focus {
+            border-color: #4ecdc4;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            outline: none;
+        }
+
+        /* Enhanced dropdown styling */
+        select.control-input {
+            background: rgba(30, 30, 30, 0.95) !important;
+            border: 2px solid #4ecdc4 !important;
+            color: white !important;
+            cursor: pointer;
+            text-align: left;
+            padding: 0.8rem 2rem 0.8rem 0.8rem !important;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.7rem center !important;
+            background-size: 1em !important;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+        }
+
+        select.control-input:hover {
+            border-color: #4ecdc4 !important;
+            background-color: rgba(40, 40, 40, 0.95) !important;
+        }
+
+        select.control-input:focus {
+            border-color: #4ecdc4 !important;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.6) !important;
+            outline: none !important;
+            background-color: rgba(50, 50, 50, 0.95) !important;
+        }
+
+        /* Style the dropdown options - Enhanced */
+        select.control-input option {
+            background: #1a1a1a !important;
+            color: white !important;
+            padding: 0.8rem !important;
+            border: none !important;
+            font-weight: 600 !important;
+        }
+
+        select.control-input option:hover {
+            background: #333333 !important;
+            color: #4ecdc4 !important;
+        }
+
+        select.control-input option:checked,
+        select.control-input option:focus {
+            background: #4ecdc4 !important;
+            color: #1a1a1a !important;
+        }
+
+        .touch-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: none;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #4ecdc4;
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 2px;
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+
+        .slider {
+            width: 150px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(78, 205, 196, 0.3);
+            border: 2px solid #4ecdc4;
+            color: white;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .lobby {
+                min-width: 90%;
+                padding: 1rem;
+            }
+            
+            .players-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .touch-controls {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Audio Controls -->
+    <div class="audio-controls">
+        <div class="radio-player">
+            <div class="radio-header" onclick="toggleRadio()">
+                <span>🎵 Radio Station</span>
+                <button class="collapse-btn" id="collapse-btn">−</button>
+            </div>
+            <div class="radio-content" id="radio-content">
+                <div class="radio-controls">
+                    <button class="radio-btn" onclick="changeStation('chill')">Chill</button>
+                    <button class="radio-btn active" onclick="changeStation('electronic')">Electronic</button>
+                    <button class="radio-btn" onclick="changeStation('ambient')">Ambient</button>
+                    <button class="radio-btn" onclick="changeStation('off')">Off</button>
+                </div>
+                <div class="volume-control">
+                    <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="30" onchange="setVolume(this.value)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="background-music" loop></audio>
+    <audio id="sound-countdown" preload="auto"></audio>
+    <audio id="sound-go" preload="auto"></audio>
+    <audio id="sound-collision" preload="auto"></audio>
+    <audio id="sound-powerup" preload="auto"></audio>
+    <audio id="sound-round-end" preload="auto"></audio>
+
+    <div class="container">
+        <!-- Menu Screen -->
+        <div id="menu-screen" class="screen active">
+            <div class="title">CURVE FEVERS</div>
+            <div class="lobby">
+                <h2 style="text-align: center; margin-bottom: 2rem;">Player Lobby</h2>
+                <div class="players-grid" id="players-grid">
+                    <!-- Player slots will be generated here -->
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn" onclick="addPlayer()">Add Player</button>
+                    <button class="btn" onclick="removePlayer()">Remove Player</button>
+                    <button class="btn" onclick="openSettings()">Settings</button>
+                    <button class="btn" onclick="startGame()" id="start-btn" disabled>Start Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-ui">
+                <div class="scores" id="scores"></div>
+                <div>Round: <span id="round-counter">1</span></div>
+            </div>
+            <canvas id="game-canvas" class="game-canvas"></canvas>
+            <div class="game-controls">
+                <button class="btn" onclick="pauseGame()" id="pause-btn">Pause</button>
+                <button class="btn" onclick="toggleFullscreen()" id="fullscreen-btn">Fullscreen</button>
+                <button class="btn" onclick="nextRound()" id="next-round-btn" style="display: none;">Next Round</button>
+                <button class="btn" onclick="restartGame()">Restart Game</button>
+                <button class="btn" onclick="backToMenu()">Back to Menu</button>
+            </div>
+            <div class="touch-controls" id="touch-controls">
+                <!-- Touch controls will be generated per player -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Configuration Modal -->
+    <div id="control-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="control-modal-title">Configure Controls</h3>
+            
+            <!-- Name Input -->
+            <div>
+                <h4>Player Name:</h4>
+                <input type="text" class="name-input" id="player-name" maxlength="12" placeholder="Enter name...">
+            </div>
+            
+            <!-- Color Selection -->
+            <div>
+                <h4>Player Color:</h4>
+                <div class="color-grid" id="color-grid">
+                    <!-- Color options will be generated here -->
+                </div>
+            </div>
+            
+            <!-- Keyboard Controls -->
+            <div>
+                <h4>Keyboard Controls:</h4>
+                <div class="control-config">
+                    <div>Left Turn:</div>
+                    <input type="text" class="control-input" id="left-key" readonly placeholder="Press key...">
+                    <div>Right Turn:</div>
+                    <input type="text" class="control-input" id="right-key" readonly placeholder="Press key...">
+                </div>
+            </div>
+            
+            <!-- Gamepad Controls -->
+            <div class="gamepad-config">
+                    <h4>Xbox 360 Controller:</h4>
+                    <div class="setting-item">
+                        <span>Assigned Gamepad:</span>
+                        <select class="control-input" id="gamepad-selection">
+                            <option value="-1">No Gamepad</option>
+                            <option value="0">Gamepad 1</option>
+                            <option value="1">Gamepad 2</option>
+                            <option value="2">Gamepad 3</option>
+                            <option value="3">Gamepad 4</option>
+                        </select>
+                    </div>
+                    <div class="control-config">
+                    <div>Left Turn:</div>
+                    <select class="control-input" id="gamepad-left">
+                        <option value="4">Left Shoulder (LB)</option>
+                        <option value="6">Left Trigger (LT)</option>
+                        <option value="14">D-Pad Left</option>
+                        <option value="stick-left">Left Stick ←</option>
+                    </select>
+                    <div>Right Turn:</div>
+                    <select class="control-input" id="gamepad-right">
+                        <option value="5">Right Shoulder (RB)</option>
+                        <option value="7">Right Trigger (RT)</option>
+                        <option value="15">D-Pad Right</option>
+                        <option value="stick-right">Left Stick →</option>
+                    </select>
+                </div>
+                <div style="font-size: 0.9rem; opacity: 0.8; margin-top: 0.5rem;">
+                    Connect your Xbox 360 controller for gamepad support
+                </div>
+            </div>
+            
+            <button class="btn" onclick="saveControls()">Save</button>
+            <button class="btn" onclick="closeControlModal()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3>Game Settings</h3>
+            
+            <!-- Game Speed -->
+            <div class="setting-item">
+                <span>Game Speed:</span>
+                <div>
+                    <input type="range" id="speed-slider" class="slider" min="0.5" max="2.5" step="0.1" value="1">
+                    <span id="speed-value">1.0x</span>
+                </div>
+            </div>
+            
+            <!-- Trail Persistence -->
+            <div class="setting-item">
+                <span>Trail Fade Time:</span>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 0.8rem; opacity: 0.8;">0s (Never fade)</span>
+                        <input type="range" id="trail-persistence-slider" class="slider" min="0" max="10000" step="500" value="0">
+                        <span style="font-size: 0.8rem; opacity: 0.8;">10s fade</span>
+                    </div>
+                    <span id="trail-persistence-value" style="font-weight: 600; color: #4ecdc4;">Permanent</span>
+                </div>
+            </div>
+            
+            <!-- Map Size -->
+            <div class="setting-item">
+                <span>Map Size:</span>
+                <div>
+                    <select class="control-input" id="map-size-select" style="width: 120px;">
+                        <option value="small">Small</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="large">Large</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Powerups -->
+            <h4 style="margin: 1.5rem 0 1rem 0;">Powerups:</h4>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <span>🚀 Speed Boost</span>
+                    <div class="checkbox checked" data-powerup="speed"></div>
+                </div>
+                <div class="setting-item">
+                    <span>🐌 Slow Down</span>
+                    <div class="checkbox checked" data-powerup="slow"></div>
+                </div>
+                <div class="setting-item">
+                    <span>🔄 Reverse Controls</span>
+                    <div class="checkbox checked" data-powerup="reverse"></div>
+                </div>
+                <div class="setting-item">
+                    <span>👻 Ghost Mode</span>
+                    <div class="checkbox checked" data-powerup="ghost"></div>
+                </div>
+                <div class="setting-item">
+                    <span>💥 Clear Trails</span>
+                    <div class="checkbox checked" data-powerup="clear"></div>
+                </div>
+                <div class="setting-item">
+                    <span>➖ Thin Trail</span>
+                    <div class="checkbox checked" data-powerup="thin"></div>
+                </div>
+                <div class="setting-item">
+                    <span>📏 Thick Trail</span>
+                    <div class="checkbox checked" data-powerup="thick"></div>
+                </div>
+                <div class="setting-item">
+                    <span>🌀 Sharp Turn</span>
+                    <div class="checkbox checked" data-powerup="sharp"></div>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="saveSettings()">Save Settings</button>
+            <button class="btn" onclick="closeSettings()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        class CurveFever {
+            constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.players = [];
+                this.gameRunning = false;
+                this.gamePaused = false;
+                this.round = 1;
+                this.maxPlayers = 8;
+                this.currentControlPlayer = null;
+                this.gamepadConnected = false;
+                this.frameCounter = 0;
+                this.capturing = null;
+                this.gapSystem = {
+                    gapStartChance: 0.008,  // Chance per frame to start a gap
+                    gapEndChance: 0.02,     // Chance per frame to end a gap
+                    minGapFrames: 15,       // Minimum gap length in frames
+                    maxGapFrames: 45,       // Maximum gap length in frames
+                };
+                this.powerups = [];
+                this.powerupSpawnRate = 0.002;
+                
+                // Game settings
+                this.gameSettings = {
+                    speed: 1.0,
+                    trailPersistence: 0, // 0 = permanent, >0 = fade after X milliseconds
+                    mapSize: 'medium',
+                    powerups: {
+                        speed: true, slow: true, reverse: true, ghost: true,
+                        clear: true, thin: true, thick: true, sharp: true
+                    }
+                };
+
+                this.powerupTypes = {
+                    speed: { color: '#00ff00', effect: 'Speed Boost', duration: 3000 },
+                    slow: { color: '#ff8c00', effect: 'Slow Down', duration: 3000 },
+                    reverse: { color: '#ff1493', effect: 'Reverse Controls', duration: 4000 },
+                    ghost: { color: '#9370db', effect: 'Ghost Mode', duration: 2500 },
+                    clear: { color: '#ffff00', effect: 'Clear Trails', duration: 0 },
+                    thin: { color: '#00bfff', effect: 'Thin Trail', duration: 5000 },
+                    thick: { color: '#ff4500', effect: 'Thick Trail', duration: 5000 },
+                    sharp: { color: '#32cd32', effect: 'Sharp Turn', duration: 4000 }
+                };
+                
+                this.colors = [
+                    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4',
+                    '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd',
+                    '#26de81', '#fd79a8', '#fdcb6e', '#e17055',
+                    '#74b9ff', '#a29bfe', '#6c5ce7', '#00b894'
+                ];
+
+                this.availableColors = [...this.colors];
+
+                // Audio system
+                this.currentStation = 'chill';
+                this.backgroundMusic = document.getElementById('background-music');
+                this.sounds = {
+                    countdown: document.getElementById('sound-countdown'),
+                    go: document.getElementById('sound-go'),
+                    collision: document.getElementById('sound-collision'),
+                    powerup: document.getElementById('sound-powerup'),
+                    roundEnd: document.getElementById('sound-round-end')
+                };
+                
+                this.radioStations = {
+                    chill: 'https://streams.ilovemusic.de/iloveradio1.mp3',
+                    electronic: 'https://streams.ilovemusic.de/iloveradio2.mp3',
+                    ambient: 'https://ice1.somafm.com/dronezone-128-mp3'
+                };
+                
+                this.initAudio();
+
+                this.defaultControls = [
+                    { left: 'KeyA', right: 'KeyD' },
+                    { left: 'ArrowLeft', right: 'ArrowRight' },
+                    { left: 'KeyJ', right: 'KeyL' },
+                    { left: 'KeyF', right: 'KeyH' },
+                    { left: 'KeyQ', right: 'KeyE' },
+                    { left: 'KeyU', right: 'KeyO' },
+                    { left: 'KeyZ', right: 'KeyC' },
+                    { left: 'KeyT', right: 'KeyY' }
+                ];
+
+                this.initCanvas();
+                this.setupEventListeners();
+                this.generatePlayerSlots();
+                this.detectGamepads();
+            }
+
+            initAudio() {
+                // Set initial volume
+                this.setVolume(30);
+                
+                // Create simple sound effects using Web Audio API
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.log('Web Audio API not supported');
+                    this.audioContext = null;
+                }
+                
+                // Auto-start electronic station
+                this.currentStation = 'electronic';
+                this.backgroundMusic.src = this.radioStations.electronic;
+                
+                // Try to play when user interacts with page
+                document.addEventListener('click', () => {
+                    if (this.backgroundMusic.paused && this.currentStation !== 'off') {
+                        this.backgroundMusic.play().catch(e => {
+                            console.log('Autoplay blocked:', e);
+                        });
+                    }
+                }, { once: true });
+            }
+
+            createBeep(frequency, duration, type = 'sine') {
+                if (!this.audioContext) return;
+                
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = type;
+                
+                gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            }
+
+            playSound(soundName) {
+                if (!this.audioContext) return;
+                
+                switch(soundName) {
+                    case 'countdown':
+                        this.createBeep(800, 0.2);
+                        break;
+                    case 'go':
+                        this.createBeep(1200, 0.5);
+                        break;
+                    case 'collision':
+                        this.createBeep(200, 0.3, 'sawtooth');
+                        break;
+                    case 'powerup':
+                        this.createBeep(600, 0.2);
+                        setTimeout(() => this.createBeep(800, 0.2), 100);
+                        break;
+                    case 'roundEnd':
+                        this.createBeep(400, 0.4);
+                        setTimeout(() => this.createBeep(500, 0.4), 200);
+                        setTimeout(() => this.createBeep(600, 0.6), 400);
+                        break;
+                }
+            }
+
+changeStation(station) {
+                this.currentStation = station;
+                
+                // Update button states
+                document.querySelectorAll('.radio-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelector(`[onclick="changeStation('${station}')"]`).classList.add('active');
+                
+                if (station === 'off') {
+                    this.backgroundMusic.pause();
+                    this.backgroundMusic.src = '';
+                } else if (this.radioStations[station]) {
+                    this.backgroundMusic.src = this.radioStations[station];
+                    this.backgroundMusic.play().catch(e => {
+                        console.log('Radio playback failed:', e);
+                    });
+                }
+            }
+
+            setVolume(value) {
+                const volume = value / 100;
+                this.backgroundMusic.volume = volume * 0.3; // Keep music quieter
+                
+                // Store volume for sound effects
+                this.soundVolume = volume;
+            }
+
+            toggleRadio() {
+                const content = document.getElementById('radio-content');
+                const btn = document.getElementById('collapse-btn');
+                
+                content.classList.toggle('collapsed');
+                btn.textContent = content.classList.contains('collapsed') ? '+' : '−';
+            }
+
+            initCanvas() {
+                // Map size configurations
+                const mapSizes = {
+                    small: { width: 800, height: 500 },
+                    medium: { width: 1200, height: 700 },
+                    large: { width: 1600, height: 900 }
+                };
+                
+                const selectedSize = mapSizes[this.gameSettings.mapSize] || mapSizes.medium;
+                
+                // Constrain to screen size with margin
+                const maxWidth = window.innerWidth - 40;
+                const maxHeight = window.innerHeight - 200;
+                
+                this.canvas.width = Math.min(selectedSize.width, maxWidth);
+                this.canvas.height = Math.min(selectedSize.height, maxHeight);
+                
+                // Update canvas size in CSS for proper display
+                this.canvas.style.width = this.canvas.width + 'px';
+                this.canvas.style.height = this.canvas.height + 'px';
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+                
+                window.addEventListener('gamepadconnected', () => {
+                    this.gamepadConnected = true;
+                    console.log('Gamepad connected');
+                });
+                
+                window.addEventListener('gamepaddisconnected', () => {
+                    this.gamepadConnected = false;
+                    console.log('Gamepad disconnected');
+                });
+            }
+
+            generatePlayerSlots() {
+                const grid = document.getElementById('players-grid');
+                grid.innerHTML = '';
+                
+                for (let i = 0; i < this.maxPlayers; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'player-slot';
+                    slot.innerHTML = `
+                        <div class="player-name">Player ${i + 1} (Empty)</div>
+                        <div class="controls-display">Click to configure</div>
+                    `;
+                    slot.onclick = () => this.configureControls(i);
+                    grid.appendChild(slot);
+                }
+            }
+
+            addPlayer() {
+                if (this.players.length >= this.maxPlayers) return;
+                
+                const player = {
+                    id: this.players.length,
+                    name: `Player ${this.players.length + 1}`,
+                    color: this.colors[this.players.length],
+                    controls: { ...this.defaultControls[this.players.length] },
+                    gamepadControls: { left: '4', right: '5' },
+                    gamepadIndex: -1, // -1 means no gamepad assigned
+                    score: 0,
+                    x: 0,
+                    y: 0,
+                    angle: 0,
+                    trail: [],
+                    alive: true,
+                    keys: { left: false, right: false },
+                    roundScore: 0,
+                    effects: {
+                        speed: 0, slow: 0, reverse: 0, ghost: 0,
+                        thin: 0, thick: 0, sharp: 0
+                    },
+                    lineWidth: 3,
+                    gapCounter: 0,
+                    nextGapAt: 0,
+                    inGap: false,
+                    gapSize: 0
+                };
+                
+                this.players.push(player);
+                this.updatePlayerSlots();
+                this.updateStartButton();
+            }
+
+            removePlayer() {
+                if (this.players.length === 0) return;
+                this.players.pop();
+                this.updatePlayerSlots();
+                this.updateStartButton();
+            }
+
+            updatePlayerSlots() {
+                const slots = document.querySelectorAll('.player-slot');
+                slots.forEach((slot, index) => {
+                    if (index < this.players.length) {
+                        const player = this.players[index];
+                        slot.className = 'player-slot active';
+                        slot.innerHTML = `
+                            <div class="player-name" style="color: ${player.color}">${player.name}</div>
+                            <div class="controls-display">Left: ${this.getKeyName(player.controls.left)} | Right: ${this.getKeyName(player.controls.right)}</div>
+                        `;
+                    } else {
+                        slot.className = 'player-slot';
+                        slot.innerHTML = `
+                            <div class="player-name">Player ${index + 1} (Empty)</div>
+                            <div class="controls-display">Click to configure</div>
+                        `;
+                    }
+                });
+            }
+
+            updateStartButton() {
+                const startBtn = document.getElementById('start-btn');
+                startBtn.disabled = this.players.length < 2;
+            }
+
+            getKeyName(code) {
+                const keyMap = {
+                    'KeyA': 'A', 'KeyD': 'D', 'KeyJ': 'J', 'KeyL': 'L',
+                    'KeyF': 'F', 'KeyH': 'H', 'KeyQ': 'Q', 'KeyE': 'E',
+                    'KeyU': 'U', 'KeyO': 'O', 'KeyZ': 'Z', 'KeyC': 'C',
+                    'KeyT': 'T', 'KeyY': 'Y', 'ArrowLeft': '←', 'ArrowRight': '→'
+                };
+                return keyMap[code] || code;
+            }
+
+            configureControls(playerIndex) {
+                if (playerIndex >= this.players.length) return;
+                
+                this.currentControlPlayer = playerIndex;
+                const player = this.players[playerIndex];
+                
+                document.getElementById('control-modal-title').textContent = `Configure ${player.name}`;
+                document.getElementById('player-name').value = player.name;
+                document.getElementById('left-key').value = this.getKeyName(player.controls.left);
+                document.getElementById('right-key').value = this.getKeyName(player.controls.right);
+                document.getElementById('gamepad-left').value = player.gamepadControls.left;
+                document.getElementById('gamepad-right').value = player.gamepadControls.right;
+                document.getElementById('gamepad-selection').value = player.gamepadIndex || -1;
+                
+                this.createColorPicker(player.color);
+                document.getElementById('control-modal').classList.add('active');
+                
+                this.setupControlCapture();
+            }
+
+            createColorPicker(currentColor) {
+                const colorGrid = document.getElementById('color-grid');
+                colorGrid.innerHTML = '';
+                
+                this.colors.forEach(color => {
+                    const colorDiv = document.createElement('div');
+                    colorDiv.className = 'color-picker';
+                    colorDiv.style.backgroundColor = color;
+                    
+                    if (color === currentColor) {
+                        colorDiv.style.borderColor = '#4ecdc4';
+                        colorDiv.style.transform = 'scale(1.1)';
+                    }
+                    
+                    colorDiv.onclick = () => {
+                        // Update player color
+                        this.players[this.currentControlPlayer].color = color;
+                        
+                        // Update visual feedback
+                        document.querySelectorAll('.color-picker').forEach(picker => {
+                            picker.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                            picker.style.transform = 'scale(1)';
+                        });
+                        
+                        colorDiv.style.borderColor = '#4ecdc4';
+                        colorDiv.style.transform = 'scale(1.1)';
+                    };
+                    
+                    colorGrid.appendChild(colorDiv);
+                });
+            }
+
+            setupControlCapture() {
+                const leftInput = document.getElementById('left-key');
+                const rightInput = document.getElementById('right-key');
+                this.capturing = null;
+                
+                leftInput.onclick = () => {
+                    leftInput.focus();
+                    leftInput.value = 'Press key...';
+                    this.capturing = 'left';
+                };
+                
+                rightInput.onclick = () => {
+                    rightInput.focus();
+                    rightInput.value = 'Press key...';
+                    this.capturing = 'right';
+                };
+            }
+
+            handleControlCapture(keyCode) {
+                const leftInput = document.getElementById('left-key');
+                const rightInput = document.getElementById('right-key');
+                
+                if (this.capturing === 'left') {
+                    leftInput.value = this.getKeyName(keyCode);
+                    this.players[this.currentControlPlayer].controls.left = keyCode;
+                } else if (this.capturing === 'right') {
+                    rightInput.value = this.getKeyName(keyCode);
+                    this.players[this.currentControlPlayer].controls.right = keyCode;
+                }
+                
+                this.capturing = null;
+            }
+
+            saveControls() {
+                const player = this.players[this.currentControlPlayer];
+                
+                // Save name
+                const newName = document.getElementById('player-name').value.trim();
+                if (newName) {
+                    player.name = newName;
+                }
+                
+                // Save gamepad controls
+                player.gamepadControls.left = document.getElementById('gamepad-left').value;
+                player.gamepadControls.right = document.getElementById('gamepad-right').value;
+                player.gamepadIndex = parseInt(document.getElementById('gamepad-selection').value);
+                
+                this.closeControlModal();
+                this.updatePlayerSlots();
+            }
+
+            closeControlModal() {
+                document.getElementById('control-modal').classList.remove('active');
+                this.currentControlPlayer = null;
+                this.capturing = null;
+            }
+
+            detectGamepads() {
+                const checkGamepads = () => {
+                    const gamepads = navigator.getGamepads();
+                    for (let i = 0; i < gamepads.length; i++) {
+                        if (gamepads[i] && this.gameRunning) {
+                            this.handleGamepadInput(gamepads[i], i);
+                        }
+                    }
+                    requestAnimationFrame(checkGamepads);
+                };
+                checkGamepads();
+            }
+
+            handleGamepadInput(gamepad, gamepadIndex) {
+                // Find player assigned to this gamepad
+                const player = this.players.find(p => p.gamepadIndex === gamepadIndex);
+                if (!player || !player.alive) return;
+                
+                // Handle custom gamepad controls
+                const leftControl = player.gamepadControls.left;
+                const rightControl = player.gamepadControls.right;
+                
+                // Reset keys
+                player.keys.left = false;
+                player.keys.right = false;
+                
+                // Check left control
+                if (leftControl === 'stick-left') {
+                    const leftStickX = gamepad.axes[0];
+                    if (leftStickX < -0.5) player.keys.left = true;
+                } else {
+                    const buttonIndex = parseInt(leftControl);
+                    if (gamepad.buttons[buttonIndex] && gamepad.buttons[buttonIndex].pressed) {
+                        player.keys.left = true;
+                    }
+                }
+                
+                // Check right control
+                if (rightControl === 'stick-right') {
+                    const leftStickX = gamepad.axes[0];
+                    if (leftStickX > 0.5) player.keys.right = true;
+                } else {
+                    const buttonIndex = parseInt(rightControl);
+                    if (gamepad.buttons[buttonIndex] && gamepad.buttons[buttonIndex].pressed) {
+                        player.keys.right = true;
+                    }
+                }
+            }
+
+            startGame() {
+                if (this.players.length < 2) return;
+                
+                document.getElementById('menu-screen').classList.remove('active');
+                document.getElementById('game-screen').classList.add('active');
+                
+                this.initializeGame();
+                this.gameLoop();
+            }
+
+            initializeGame() {
+                this.gameRunning = false;
+                this.gamePaused = false;
+                this.countdown = 5;
+                this.countdownActive = true;
+                
+                // Randomize starting positions safely
+                this.generateRandomStartingPositions();
+                
+                this.players.forEach((player, index) => {
+                    player.trail = [];
+                    player.alive = true;
+                    player.keys = { left: false, right: false };
+                    player.gapCounter = 0;
+                    player.gapLength = Math.floor(Math.random() * 20) + 80;
+                    player.drawingTrail = true;
+                    player.roundScore = 0;
+                    // Reset powerup effects
+                    player.effects = {
+                        speed: 0, slow: 0, reverse: 0, ghost: 0,
+                        thin: 0, thick: 0, sharp: 0
+                    };
+                    player.lineWidth = 3;
+                    
+                    // Initialize gap system
+                    player.gapCounter = 0;
+                    player.inGap = false;
+                    player.gapFramesLeft = 0;
+                });
+                
+                // Clear powerups
+                this.powerups = [];
+                this.updateScores();
+                this.updateRoundCounter();
+                this.createTouchControls();
+                this.startCountdown();
+            }
+
+            generateRandomStartingPositions() {
+                const safeMargin = 80; // Minimum distance from walls
+                const minPlayerDistance = 100; // Minimum distance between players
+                const maxAttempts = 50; // Prevent infinite loops
+                
+                const positions = [];
+                
+                for (let i = 0; i < this.players.length; i++) {
+                    let validPosition = false;
+                    let attempts = 0;
+                    let x, y, angle;
+                    
+                    while (!validPosition && attempts < maxAttempts) {
+                        // Generate random position within safe bounds
+                        x = safeMargin + Math.random() * (this.canvas.width - 2 * safeMargin);
+                        y = safeMargin + Math.random() * (this.canvas.height - 2 * safeMargin);
+                        
+                        // Generate random starting angle
+                        angle = Math.random() * Math.PI * 2;
+                        
+                        // Check if position is far enough from other players
+                        validPosition = true;
+                        for (let j = 0; j < positions.length; j++) {
+                            const distance = Math.sqrt(
+                                Math.pow(x - positions[j].x, 2) + 
+                                Math.pow(y - positions[j].y, 2)
+                            );
+                            
+                            if (distance < minPlayerDistance) {
+                                validPosition = false;
+                                break;
+                            }
+                        }
+                        
+                        attempts++;
+                    }
+                    
+                    // If we couldn't find a good random position, fall back to circle arrangement
+                    if (!validPosition) {
+                        const centerX = this.canvas.width / 2;
+                        const centerY = this.canvas.height / 2;
+                        const radius = Math.min(centerX, centerY) * 0.6;
+                        const angleStep = (i / this.players.length) * Math.PI * 2;
+                        
+                        x = centerX + Math.cos(angleStep) * radius;
+                        y = centerY + Math.sin(angleStep) * radius;
+                        angle = angleStep + Math.PI + (Math.random() - 0.5) * 0.5; // Add slight random variation
+                    }
+                    
+                    positions.push({ x, y, angle });
+                    
+                    // Apply position to player
+                    this.players[i].x = x;
+                    this.players[i].y = y;
+                    this.players[i].angle = angle;
+                }
+            }
+
+            startCountdown() {
+                 const countdownTimer = setInterval(() => {
+                    this.countdown--;
+                    this.playSound('countdown');
+                    
+                    if (this.countdown <= 0) {
+                        clearInterval(countdownTimer);
+                        this.countdownActive = false;
+                        this.gameRunning = true;
+                        this.playSound('go');
+                    }
+                }, 1000);
+            }
+
+            createTouchControls() {
+                const touchContainer = document.getElementById('touch-controls');
+                touchContainer.innerHTML = '';
+                
+                if ('ontouchstart' in window) {
+                    this.players.forEach((player, index) => {
+                        const leftBtn = document.createElement('div');
+                        leftBtn.className = 'touch-btn';
+                        leftBtn.innerHTML = '←';
+                        leftBtn.style.background = `rgba(${this.hexToRgb(player.color)}, 0.3)`;
+                        leftBtn.style.borderColor = player.color;
+                        
+                        const rightBtn = document.createElement('div');
+                        rightBtn.className = 'touch-btn';
+                        rightBtn.innerHTML = '→';
+                        rightBtn.style.background = `rgba(${this.hexToRgb(player.color)}, 0.3)`;
+                        rightBtn.style.borderColor = player.color;
+                        
+                        leftBtn.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            player.keys.left = true;
+                        });
+                        
+                        leftBtn.addEventListener('touchend', (e) => {
+                            e.preventDefault();
+                            player.keys.left = false;
+                        });
+                        
+                        rightBtn.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            player.keys.right = true;
+                        });
+                        
+                        rightBtn.addEventListener('touchend', (e) => {
+                            e.preventDefault();
+                            player.keys.right = false;
+                        });
+                        
+                        const playerControls = document.createElement('div');
+                        playerControls.style.display = 'flex';
+                        playerControls.style.gap = '10px';
+                        playerControls.appendChild(leftBtn);
+                        playerControls.appendChild(rightBtn);
+                        
+                        touchContainer.appendChild(playerControls);
+                    });
+                }
+            }
+
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? 
+                    `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+                    '255, 255, 255';
+            }
+
+            handleKeyDown(e) {
+                if (this.currentControlPlayer !== null && this.capturing) {
+                    e.preventDefault();
+                    this.handleControlCapture(e.code);
+                    return;
+                }
+                
+                if (!this.gameRunning || this.gamePaused || this.countdownActive) return;
+                
+                this.players.forEach(player => {
+                    if (!player.alive) return;
+                    
+                    if (e.code === player.controls.left) {
+                        player.keys.left = true;
+                        e.preventDefault();
+                    }
+                    if (e.code === player.controls.right) {
+                        player.keys.right = true;
+                        e.preventDefault();
+                    }
+                });
+            }
+
+            handleKeyUp(e) {
+                if (!this.gameRunning && !this.countdownActive) return;
+                
+                this.players.forEach(player => {
+                    if (e.code === player.controls.left) {
+                        player.keys.left = false;
+                        e.preventDefault();
+                    }
+                    if (e.code === player.controls.right) {
+                        player.keys.right = false;
+                        e.preventDefault();
+                    }
+                });
+            }
+
+            gameLoop() {
+                if (!this.gameRunning && !this.countdownActive) return;
+                
+                if (this.countdownActive) {
+                    this.renderCountdown();
+                } else if (!this.gamePaused) {
+                    this.update();
+                    this.render();
+                    this.checkGameEnd();
+                } else {
+                    this.render();
+                }
+                
+                requestAnimationFrame(() => this.gameLoop());
+            }
+
+            update() {
+                const baseSpeed = 0.75 * this.gameSettings.speed;
+                const baseTurnSpeed = 0.025 * this.gameSettings.speed;
+                
+                this.frameCounter++;
+                this.spawnPowerups();
+                this.updateTrailPersistence();
+                
+                this.players.forEach(player => {
+                    if (!player.alive) return;
+                    
+                    this.updatePlayerEffects(player);
+                    
+                    let speed = baseSpeed;
+                    let turnSpeed = baseTurnSpeed;
+                    
+                    if (player.effects.speed > 0) speed *= 1.8;
+                    if (player.effects.slow > 0) speed *= 0.4;
+                    if (player.effects.sharp > 0) turnSpeed *= 1.6;
+                    
+                    let leftPressed = player.keys.left;
+                    let rightPressed = player.keys.right;
+                    
+                    if (player.effects.reverse > 0) {
+                        [leftPressed, rightPressed] = [rightPressed, leftPressed];
+                    }
+                    
+                    if (leftPressed) {
+                        player.angle -= turnSpeed;
+                    }
+                    if (rightPressed) {
+                        player.angle += turnSpeed;
+                    }
+                    
+                    player.x += Math.cos(player.angle) * speed;
+                    player.y += Math.sin(player.angle) * speed;
+                    
+                    player.gapCounter++;
+                    
+                    if (player.gapCounter >= player.gapLength) {
+                        if (player.drawingTrail) {
+                            player.drawingTrail = false;
+                            player.gapCounter = 0;
+                            player.gapLength = Math.floor(Math.random() * 10) + 15;
+                        } else {
+                            player.drawingTrail = true;
+                            player.gapCounter = 0;
+                            player.gapLength = Math.floor(Math.random() * 40) + 60;
+                        }
+                    }
+                    
+                     if (!player.inGap) {
+                        // Random chance to start a gap each frame
+                        if (Math.random() < this.gapSystem.gapStartChance) {
+                            player.inGap = true;
+                            player.gapFramesLeft = this.gapSystem.minGapFrames + 
+                                Math.random() * (this.gapSystem.maxGapFrames - this.gapSystem.minGapFrames);
+                        }
+                    } else {
+                        // Count down gap frames
+                        player.gapFramesLeft--;
+                        
+                        // Random chance to end gap early, or end when frames run out
+                        if (player.gapFramesLeft <= 0 || Math.random() < this.gapSystem.gapEndChance) {
+                            player.inGap = false;
+                        }
+                    }
+                    
+                    if (player.drawingTrail && !player.inGap) {
+                        const trailPoint = { 
+                            x: Math.round(player.x), 
+                            y: Math.round(player.y),
+                            width: player.lineWidth,
+                            timestamp: this.gameSettings.trailPersistence > 0 ? Date.now() : null
+                        };
+                        player.trail.push(trailPoint);
+                    } else {
+                        if (player.trail.length > 0) {
+                            player.trail.push({ 
+                                x: Math.round(player.x), 
+                                y: Math.round(player.y),
+                                gap: true
+                            });
+                        }
+                    }
+                    
+                    
+                    this.checkPowerupCollection(player);
+                    
+                    if (player.effects.ghost === 0) {
+                        this.checkCollisions(player);
+                    } else {
+                        this.checkWallCollisions(player);
+                    }
+                });
+            }
+
+            checkCollisions(player) {
+                this.checkWallCollisions(player);
+                this.checkTrailCollisions(player);
+            }
+
+            checkWallCollisions(player) {
+                if (player.x < 5 || player.x > this.canvas.width - 5 || 
+                    player.y < 5 || player.y > this.canvas.height - 5) {
+                    player.alive = false;
+                    this.playSound('collision');
+                }
+            }
+
+            checkTrailCollisions(player) {
+                
+                this.players.forEach(otherPlayer => {
+                    if (otherPlayer.trail.length < 30) return;
+                    
+                    const skipPoints = (otherPlayer === player) ? 20 : 3;
+                    
+                    for (let i = 0; i < otherPlayer.trail.length - skipPoints; i++) {
+                        const point = otherPlayer.trail[i];
+                        
+                        if (point.gap) continue;
+                        
+                        const dist = Math.sqrt(
+                            Math.pow(player.x - point.x, 2) + 
+                            Math.pow(player.y - point.y, 2)
+                        );
+                        
+                        const collisionRadius = (point.width || 3) / 2 + 2;
+                        
+                        if (dist < collisionRadius) {
+                            player.alive = false;
+                            this.playSound('collision');
+                            return;
+                        }
+                    }
+                });
+            }
+
+             spawnPowerups() {
+                if (this.powerups.length >= 3) return;
+                
+                if (Math.random() < this.powerupSpawnRate) {
+                    const enabledPowerups = Object.keys(this.gameSettings.powerups)
+                        .filter(type => this.gameSettings.powerups[type]);
+                    
+                    if (enabledPowerups.length === 0) return;
+                    
+                    const type = enabledPowerups[Math.floor(Math.random() * enabledPowerups.length)];
+                    const margin = 40;
+                    
+                    const powerup = {
+                        type: type,
+                        x: margin + Math.random() * (this.canvas.width - 2 * margin),
+                        y: margin + Math.random() * (this.canvas.height - 2 * margin),
+                        color: this.powerupTypes[type].color,
+                        spawnTime: Date.now()
+                    };
+                    
+                    this.powerups.push(powerup);
+                }
+            }
+
+            updateTrailPersistence() {
+                if (this.gameSettings.trailPersistence <= 0) return;
+                
+                const currentTime = Date.now();
+                const maxAge = this.gameSettings.trailPersistence;
+                
+                this.players.forEach(player => {
+                    // Remove old trail segments
+                    player.trail = player.trail.filter(point => {
+                        if (point.gap || !point.timestamp) return true;
+                        return (currentTime - point.timestamp) < maxAge;
+                    });
+                });
+            }
+
+            checkPowerupCollection(player) {
+                for (let i = this.powerups.length - 1; i >= 0; i--) {
+                    const powerup = this.powerups[i];
+                    const dist = Math.sqrt(
+                        Math.pow(player.x - powerup.x, 2) + 
+                        Math.pow(player.y - powerup.y, 2)
+                    );
+                    
+                    if (dist < 15) {
+                        this.applyPowerup(player, powerup.type);
+                        this.powerups.splice(i, 1);
+                    }
+                }
+            }
+
+            applyPowerup(player, type) {
+                const duration = this.powerupTypes[type].duration;
+                
+                switch(type) {
+                    case 'speed':
+                    case 'slow':
+                    case 'reverse':
+                    case 'ghost':
+                    case 'sharp':
+                        player.effects[type] = Date.now() + duration;
+                        break;
+                        
+                    case 'thin':
+                        player.effects.thin = Date.now() + duration;
+                        player.lineWidth = 0.7;
+                        break;
+                        
+                    case 'thick':
+                        player.effects.thick = Date.now() + duration;
+                        player.lineWidth = 8;
+                        break;
+                        
+                    case 'clear':
+                        this.players.forEach(p => {
+                            p.trail = [];
+                        });
+                        break;
+                }
+            }
+
+            updatePlayerEffects(player) {
+                const now = Date.now();
+                
+                Object.keys(player.effects).forEach(effect => {
+                    if (player.effects[effect] > 0 && now > player.effects[effect]) {
+                        player.effects[effect] = 0;
+                        
+                        if (effect === 'thin' || effect === 'thick') {
+                            player.lineWidth = 3;
+                        }
+                    }
+                });
+            }
+
+            openSettings() {
+                document.getElementById('speed-slider').value = this.gameSettings.speed;
+                document.getElementById('speed-value').textContent = this.gameSettings.speed.toFixed(1) + 'x';
+                
+                document.getElementById('trail-persistence-slider').value = this.gameSettings.trailPersistence;
+                this.updateTrailPersistenceDisplay(this.gameSettings.trailPersistence);
+                
+                document.getElementById('map-size-select').value = this.gameSettings.mapSize;
+                
+                Object.keys(this.gameSettings.powerups).forEach(powerup => {
+                    const checkbox = document.querySelector(`[data-powerup="${powerup}"]`);
+                    if (checkbox) {
+                        checkbox.classList.toggle('checked', this.gameSettings.powerups[powerup]);
+                    }
+                });
+                
+                document.getElementById('settings-modal').classList.add('active');
+                
+                const speedSlider = document.getElementById('speed-slider');
+                speedSlider.oninput = () => {
+                    document.getElementById('speed-value').textContent = parseFloat(speedSlider.value).toFixed(1) + 'x';
+                };
+                
+                const trailSlider = document.getElementById('trail-persistence-slider');
+                trailSlider.oninput = (e) => {
+                    this.updateTrailPersistenceDisplay(parseInt(e.target.value));
+                };
+                trailSlider.onchange = (e) => {
+                    this.updateTrailPersistenceDisplay(parseInt(e.target.value));
+                };
+                
+                document.querySelectorAll('.checkbox').forEach(checkbox => {
+                    checkbox.onclick = () => checkbox.classList.toggle('checked');
+                });
+            }
+
+            updateTrailPersistenceDisplay(value) {
+                const display = document.getElementById('trail-persistence-value');
+                if (value === 0) {
+                    display.textContent = 'Trails Never Fade';
+                    display.style.color = '#4ecdc4';
+                } else if (value <= 2000) {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Very Fast)`;
+                    display.style.color = '#ff6b6b';
+                } else if (value <= 5000) {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Fast)`;
+                    display.style.color = '#feca57';
+                } else {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Slow)`;
+                    display.style.color = '#96ceb4';
+                }
+            }
+
+            updateTrailPersistenceDisplay(value) {
+                const display = document.getElementById('trail-persistence-value');
+                if (value === 0) {
+                    display.textContent = 'Trails Never Fade';
+                    display.style.color = '#4ecdc4';
+                } else if (value <= 2000) {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Very Fast)`;
+                    display.style.color = '#ff6b6b';
+                } else if (value <= 5000) {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Fast)`;
+                    display.style.color = '#feca57';
+                } else {
+                    display.textContent = `Fade in ${(value / 1000).toFixed(1)}s (Slow)`;
+                    display.style.color = '#96ceb4';
+                }
+            }
+
+            saveSettings() {
+                this.gameSettings.speed = parseFloat(document.getElementById('speed-slider').value);
+                this.gameSettings.trailPersistence = parseInt(document.getElementById('trail-persistence-slider').value);
+                
+                const oldMapSize = this.gameSettings.mapSize;
+                this.gameSettings.mapSize = document.getElementById('map-size-select').value;
+                
+                // Update canvas size if map size changed
+                if (oldMapSize !== this.gameSettings.mapSize) {
+                    this.initCanvas();
+                }
+                
+                document.querySelectorAll('.checkbox').forEach(checkbox => {
+                    const powerup = checkbox.getAttribute('data-powerup');
+                    if (powerup) {
+                        this.gameSettings.powerups[powerup] = checkbox.classList.contains('checked');
+                    }
+                });
+                
+                this.closeSettings();
+            }
+
+            closeSettings() {
+                document.getElementById('settings-modal').classList.remove('active');
+            }
+
+            render() {
+                const gradient = this.ctx.createRadialGradient(
+                    this.canvas.width / 2, this.canvas.height / 2, 0,
+                    this.canvas.width / 2, this.canvas.height / 2, Math.max(this.canvas.width, this.canvas.height) / 2
+                );
+                gradient.addColorStop(0, '#001122');
+                gradient.addColorStop(1, '#000000');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.players.forEach(player => {
+                    if (player.trail.length < 2) return;
+                    
+                    this.ctx.lineWidth = 4;
+                    this.ctx.lineCap = 'round';
+                    this.ctx.lineJoin = 'round';
+                    
+                    let currentSegment = [];
+                    
+                    player.trail.forEach((point, index) => {
+                        if (point.gap) {
+                            if (currentSegment.length > 1) {
+                                this.drawTrailSegmentWithGlow(currentSegment, player.color);
+                            }
+                            currentSegment = [];
+                        } else {
+                            currentSegment.push(point);
+                        }
+                    });
+                    
+                    if (currentSegment.length > 1) {
+                        this.drawTrailSegmentWithGlow(currentSegment, player.color);
+                    }
+                });
+                
+                this.powerups.forEach(powerup => {
+                    const age = Date.now() - powerup.spawnTime;
+                    const maxAge = 15000;
+                    
+                    if (age > maxAge) {
+                        const index = this.powerups.indexOf(powerup);
+                        this.powerups.splice(index, 1);
+                        return;
+                    }
+                    
+                    const alpha = age > maxAge * 0.7 ? 
+                        (Math.sin(Date.now() * 0.01) + 1) / 2 : 1;
+                    
+                    this.ctx.globalAlpha = alpha;
+                    
+                    // Draw outer circle with powerup color
+                    this.ctx.fillStyle = powerup.color;
+                    this.ctx.shadowColor = powerup.color;
+                    this.ctx.shadowBlur = 15;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(powerup.x, powerup.y, 12, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    this.ctx.shadowBlur = 0;
+                    
+                    // Draw inner white circle background for icon
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.beginPath();
+                    this.ctx.arc(powerup.x, powerup.y, 9, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    // Draw powerup icon
+                    this.ctx.fillStyle = '#333333';
+                    this.ctx.font = 'bold 12px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    let icon = '';
+                    switch(powerup.type) {
+                        case 'speed': icon = '🚀'; break;
+                        case 'slow': icon = '🐌'; break;
+                        case 'reverse': icon = '🔄'; break;
+                        case 'ghost': icon = '👻'; break;
+                        case 'clear': icon = '💥'; break;
+                        case 'thin': icon = '➖'; break;
+                        case 'thick': icon = '📏'; break;
+                        case 'sharp': icon = '🌀'; break;
+                    }
+                    
+                    this.ctx.fillText(icon, powerup.x, powerup.y);
+                    
+                    this.ctx.globalAlpha = 1;
+                });
+                
+                this.players.forEach(player => {
+                    if (!player.alive) return;
+                    
+                    let headColor = player.color;
+                    let headSize = 7;
+                    
+                    if (player.effects.speed > 0) {
+                        headColor = '#00ff00';
+                        headSize = 9;
+                    } else if (player.effects.slow > 0) {
+                        headColor = '#ff8c00';
+                        headSize = 5;
+                    } else if (player.effects.ghost > 0) {
+                        this.ctx.globalAlpha = 0.5;
+                        headColor = '#9370db';
+                    } else if (player.effects.reverse > 0) {
+                        headColor = '#ff1493';
+                    }
+                    
+                    this.ctx.shadowColor = headColor;
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.fillStyle = headColor;
+                    this.ctx.beginPath();
+                    this.ctx.arc(player.x, player.y, headSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    this.ctx.shadowBlur = 5;
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.beginPath();
+                    this.ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                     this.ctx.shadowBlur = 0;
+                    this.ctx.globalAlpha = 1;
+                });
+            }
+
+            drawTrailSegmentWithGlow(segment, color) {
+                if (segment.length < 2) return;
+                
+                const lineWidth = segment[0].width || 3;
+                
+                this.ctx.shadowColor = color;
+                this.ctx.shadowBlur = 8;
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = lineWidth + 3;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(segment[0].x, segment[0].y);
+                for (let i = 1; i < segment.length; i++) {
+                    this.ctx.lineTo(segment[i].x, segment[i].y);
+                }
+                this.ctx.stroke();
+                
+                this.ctx.shadowBlur = 0;
+                this.ctx.lineWidth = lineWidth;
+                this.ctx.strokeStyle = color;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(segment[0].x, segment[0].y);
+                for (let i = 1; i < segment.length; i++) {
+                    this.ctx.lineTo(segment[i].x, segment[i].y);
+                }
+                this.ctx.stroke();
+            }
+
+            renderCountdown() {
+                const gradient = this.ctx.createRadialGradient(
+                    this.canvas.width / 2, this.canvas.height / 2, 0,
+                    this.canvas.width / 2, this.canvas.height / 2, Math.max(this.canvas.width, this.canvas.height) / 2
+                );
+                gradient.addColorStop(0, '#001122');
+                gradient.addColorStop(1, '#000000');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.players.forEach(player => {
+                    const pulseSize = 8 + Math.sin(Date.now() * 0.01) * 2;
+                    this.ctx.fillStyle = player.color;
+                    this.ctx.shadowColor = player.color;
+                    this.ctx.shadowBlur = 15;
+                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.beginPath();
+                    this.ctx.arc(player.x, player.y, pulseSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.globalAlpha = 1;
+                    this.ctx.shadowBlur = 0;
+                });
+                
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                
+                if (this.countdown > 0) {
+                    this.ctx.shadowColor = '#4ecdc4';
+                    this.ctx.shadowBlur = 20;
+                    this.ctx.fillStyle = '#4ecdc4';
+                    this.ctx.font = 'bold 80px Segoe UI';
+                    this.ctx.fillText(this.countdown.toString(), this.canvas.width / 2, this.canvas.height / 2);
+                } else {
+                    this.ctx.shadowColor = '#ff6b6b';
+                    this.ctx.shadowBlur = 25;
+                    this.ctx.fillStyle = '#ff6b6b';
+                    this.ctx.font = 'bold 60px Segoe UI';
+                    this.ctx.fillText('GO!', this.canvas.width / 2, this.canvas.height / 2);
+                }
+                this.ctx.shadowBlur = 0;
+            }
+
+            checkGameEnd() {
+                const alivePlayers = this.players.filter(p => p.alive);
+                
+                if (alivePlayers.length <= 1) {
+                    const totalPlayers = this.players.length;
+                    const deadPlayers = this.players.filter(p => !p.alive);
+                    
+                    if (alivePlayers.length === 1) {
+                        alivePlayers[0].score += this.getWinnerPoints(totalPlayers);
+                        alivePlayers[0].roundScore = this.getWinnerPoints(totalPlayers);
+                    }
+                    
+                    deadPlayers.forEach((player, index) => {
+                        const survivalPoints = Math.max(1, totalPlayers - deadPlayers.length + index);
+                        player.score += survivalPoints;
+                        player.roundScore = survivalPoints;
+                    });
+                    
+                    this.gameRunning = false;
+                    this.updateScores();
+                    this.showRoundResults();
+                    
+                    setTimeout(() => {
+                        document.getElementById('next-round-btn').style.display = 'block';
+                    }, 3000);
+                }
+            }
+
+            getWinnerPoints(totalPlayers) {
+                const pointsMap = {
+                    2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 10
+                };
+                return pointsMap[totalPlayers] || 5;
+            }
+
+            showRoundResults() {
+                const sortedPlayers = [...this.players].sort((a, b) => b.roundScore - a.roundScore);
+                
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.ctx.fillStyle = '#4ecdc4';
+                this.ctx.font = 'bold 32px Segoe UI';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('Round Results', this.canvas.width / 2, 80);
+                
+                sortedPlayers.forEach((player, index) => {
+                    const y = 150 + (index * 60);
+                    const placement = index + 1;
+                    
+                    this.ctx.fillStyle = player.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.canvas.width / 2 - 200, y, 25, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = 'bold 20px Segoe UI';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(placement.toString(), this.canvas.width / 2 - 200, y + 7);
+                    
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = '24px Segoe UI';
+                    this.ctx.textAlign = 'left';
+                    this.ctx.fillText(`${player.name}`, this.canvas.width / 2 - 150, y + 8);
+                    
+                    this.ctx.textAlign = 'right';
+                    this.ctx.fillText(`+${player.roundScore} pts (Total: ${player.score})`, this.canvas.width / 2 + 200, y + 8);
+                });
+            }
+
+            updateScores() {
+                const scoresContainer = document.getElementById('scores');
+                scoresContainer.innerHTML = '';
+                
+                this.players.forEach(player => {
+                    const scoreItem = document.createElement('div');
+                    scoreItem.className = 'score-item';
+                    scoreItem.style.borderLeft = `4px solid ${player.color}`;
+                    scoreItem.textContent = `${player.name}: ${player.score}`;
+                    scoresContainer.appendChild(scoreItem);
+                });
+            }
+
+            updateRoundCounter() {
+                document.getElementById('round-counter').textContent = this.round;
+            }
+
+            pauseGame() {
+                this.gamePaused = !this.gamePaused;
+                document.getElementById('pause-btn').textContent = this.gamePaused ? 'Resume' : 'Pause';
+            }
+
+            nextRound() {
+                this.round++;
+                document.getElementById('next-round-btn').style.display = 'none';
+                this.initializeGame();
+                this.gameLoop();
+            }
+
+            restartGame() {
+                this.round = 1;
+                this.players.forEach(player => {
+                    player.score = 0;
+                });
+                document.getElementById('next-round-btn').style.display = 'none';
+                this.initializeGame();
+                this.gameLoop();
+            }
+
+            backToMenu() {
+                this.gameRunning = false;
+                this.gamePaused = false;
+                this.exitFullscreen();
+                document.getElementById('game-screen').classList.remove('active');
+                document.getElementById('menu-screen').classList.add('active');
+            }
+
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().then(() => {
+                        document.getElementById('fullscreen-btn').textContent = 'Exit Fullscreen';
+                    }).catch(err => {
+                        console.log('Fullscreen request failed:', err);
+                    });
+                } else {
+                    this.exitFullscreen();
+                }
+            }
+
+            exitFullscreen() {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen().then(() => {
+                        document.getElementById('fullscreen-btn').textContent = 'Fullscreen';
+                    });
+                }
+            }
+        }
+
+        // Global game instance
+        let game;
+
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            game = new CurveFever();
+        });
+
+        // Global functions for buttons
+        function addPlayer() {
+            game.addPlayer();
+        }
+
+        function removePlayer() {
+            game.removePlayer();
+        }
+
+        function startGame() {
+            game.startGame();
+        }
+
+        function pauseGame() {
+            game.pauseGame();
+        }
+
+        function nextRound() {
+            game.nextRound();
+        }
+
+        function restartGame() {
+            game.restartGame();
+        }
+
+        function backToMenu() {
+            game.backToMenu();
+        }
+
+        function saveControls() {
+            game.saveControls();
+        }
+
+        function closeControlModal() {
+            game.closeControlModal();
+        }
+
+        function openSettings() {
+            game.openSettings();
+        }
+
+        function saveSettings() {
+            game.saveSettings();
+        }
+
+        function closeSettings() {
+            game.closeSettings();
+        }
+
+        function toggleFullscreen() {
+            game.toggleFullscreen();
+        }
+
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            if (fullscreenBtn) {
+                fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (game) {
+                game.initCanvas();
+            }
+        });
+        function changeStation(station) {
+            game.changeStation(station);
+        }
+
+        function setVolume(value) {
+            game.setVolume(value);
+        }
+
+        function toggleRadio() {
+            game.toggleRadio();
+        }
+    </script>
+</body>
+</html>
